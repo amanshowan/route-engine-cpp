@@ -9,13 +9,14 @@ standard library. It loads a network from CSV, answers route queries with
 benchmark that compares the algorithms **and refuses to publish a comparison it
 cannot verify**.
 
-> **Status: v1.0 release candidate.** All four milestones are implemented and
-> the full suite passes locally in debug, release and sanitizer builds.
+> **Status: v1.0 complete.** All four milestones are implemented, and the full
+> suite passes locally in debug, release and sanitizer builds.
 >
-> The GitHub Actions workflow at `.github/workflows/ci.yml` has been written and
-> its structure reviewed, but **it has not yet run on GitHub** — this commit is
-> the one that will trigger it. The badge above will be meaningless until then.
-> The `v1.0.0` tag will follow the first green run, not precede it.
+> GitHub Actions passed on release-candidate commit `324e50e`: GCC and Clang
+> debug builds with warnings as errors, the Clang AddressSanitizer +
+> UndefinedBehaviorSanitizer job, and the release smoke job that exercises
+> `generate`, `validate`, `route` and `benchmark` end to end. The `v1.0.0` tag
+> has not been created yet.
 
 ## What is worth looking at
 
