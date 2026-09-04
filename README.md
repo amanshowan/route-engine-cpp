@@ -1,20 +1,20 @@
 # C++ Route and Network Engine
 
-A C++20 route-engine project under construction, targeting sparse, road-like
-networks. Loading, Dijkstra, A\* and a two-command CLI are working; a
-deterministic graph generator and a reproducible benchmark comparing the
-algorithms are planned for later milestones.
+A C++20 route engine for sparse, road-like networks: an immutable CSR graph
+core, strict CSV input, Dijkstra and A\*, a deterministic synthetic network
+generator, and a reproducible benchmark that compares the algorithms.
 
-> **Status: in progress — Commits 1 and 2 of four are complete.**
+> **Status: in progress — Commits 1, 2 and 3 of four are complete.**
 >
-> **Working now:** the immutable CSR graph core, strict CSV loading,
-> Dijkstra, A\* with a zero heuristic, A\* with a Euclidean heuristic, the
-> metric contract that gates the Euclidean heuristic, and the `validate` and
-> `route` commands.
+> **Working now:** the immutable CSR graph core, strict CSV loading, Dijkstra,
+> A\* with a zero heuristic, A\* with a Euclidean heuristic, the metric contract
+> that gates the Euclidean heuristic, the deterministic generator, the
+> algorithm-comparison benchmark, and all four CLI commands.
 >
-> **Planned, and not present:** the deterministic graph generator, the
-> benchmark harness and its results, and continuous integration. No
-> performance measurement of any kind has been made or is claimed.
+> **Planned, and not present:** continuous integration, a committed reference
+> benchmark result, and release preparation. Any benchmark numbers below were
+> produced on one developer machine and are reproduced here as illustration,
+> not as a portable result.
 
 ## Purpose
 
@@ -101,8 +101,64 @@ route and the same cost. That is one query on a six-node graph, reported
 because it is what the tool printed — it is not a benchmark, and no timing has
 been measured.
 
-`generate` and `benchmark` are named in the usage text as planned subcommands
-and currently exit with a usage error.
+### Generate a network
+
+```bash
+./build/release/route-engine generate \
+  --width 40 --height 40 --seed 20250904 \
+  --nodes /tmp/grid_nodes.csv --edges /tmp/grid_edges.csv
+```
+
+```
+generated:        40 x 40 lattice
+seed:             20250904
+spacing:          100
+jitter:           0.35
+diagonal rate:    0.25
+nodes:            1600
+arcs:             7730
+metric contract:  satisfied
+```
+
+Optional parameters, with their defaults: `--spacing 100` (metres between
+lattice sites), `--jitter 0.35` (maximum displacement as a fraction of the
+spacing, must be under 0.5 so neighbours cannot coincide), `--diagonal-rate
+0.25` (probability that each of a cell's two diagonals is added). `generate`
+never overwrites an existing file unless `--force` is given.
+
+### Benchmark the algorithms
+
+```bash
+./build/release/route-engine benchmark \
+  --nodes /tmp/grid_nodes.csv --edges /tmp/grid_edges.csv \
+  --queries 200 --seed 7 --repetitions 5
+```
+
+```
+nodes:            1600
+arcs:             7730
+metric contract:  satisfied
+queries:          200 (seed 7)
+repetitions:      5
+warm-up:          1 pass per algorithm, excluded from every figure below
+order:            rotated by one algorithm on each repetition
+routes found:     200 of 200
+agreement:        every algorithm agrees on route existence and cost
+
+totals over 200 queries, per algorithm
+algorithm                 expanded            arcs        pushes          pops       stale   max queue      median s
+dijkstra                    154733          753790        197261        185563       30830         145      0.007157
+astar-zero                  154733          753790        197261        185563       30830         145      0.006929
+astar-euclidean              25715          126904         49468         33127        7412         202      0.002513
+
+node expansions relative to dijkstra:
+  dijkstra          1.000
+  astar-zero        1.000
+  astar-euclidean   0.166
+```
+
+Use the `release` preset for anything you intend to time. Those figures come
+from one machine, one build and one graph; see the caveats below.
 
 ### Exit codes
 
@@ -113,6 +169,7 @@ and currently exit with a usage error.
 | 2 | Command-line usage error |
 | 3 | CSV or graph data error, including a node id that is not in the node file |
 | 4 | Euclidean A\* requested on a graph that violates the metric contract |
+| 5 | The benchmark's algorithms disagreed with each other; no report was produced |
 
 ## Input format
 
@@ -225,6 +282,89 @@ Every search reports `nodes expanded`, `arcs examined`, `relaxations`,
 are exact and reproducible for a given graph and query; none of them is a
 timing measurement, and `max queue size` counts queue entries, not bytes.
 
+## The generated network
+
+`generate` builds a jittered lattice, not a clean grid. Each of the
+`width * height` sites is placed near its lattice position and displaced
+independently in x and y by up to `jitter * spacing`. Every horizontal and
+vertical neighbour pair is joined by **two arcs, one in each direction**, which
+makes the graph strongly connected by construction with no repair step. Each
+cell's two diagonals are then offered independently and accepted with
+probability `diagonal-rate`, again as two arcs.
+
+Node `r * width + c` gets external identifier `r * width + c + 1`, so
+identifiers run from 1 in row-major order.
+
+**Every arc weight is exactly the Euclidean distance between its endpoints**,
+so the metric contract holds with equality and a generated graph is always
+usable by Euclidean A\*. `generate` verifies that on the finished graph rather
+than assuming it.
+
+### Determinism
+
+The pseudo-random stream is **SplitMix64**, written out in full in
+`include/route/random.hpp`. Neither `std::rand` nor the
+`std::uniform_*_distribution` templates are used: the standard fixes the
+engines but not the distributions, so their output legitimately differs between
+standard libraries and a generator built on them would only be deterministic on
+one machine.
+
+The draw order is fixed and documented: all coordinates first, in row-major
+order with x before y, then two draws per cell for the diagonals. The diagonal
+draws happen whether or not the diagonal is accepted, so changing
+`--diagonal-rate` does not shift the stream and the node coordinates for a
+given seed are the same at every rate.
+
+Numbers are written with `std::to_chars`, which is locale-independent and emits
+the shortest text that reads back as the identical `double`. The same
+parameters therefore produce byte-identical CSV files, and a generated file
+reloads into a bit-identical graph — which is what keeps the metric contract
+satisfied after a round trip through disk. That guarantee is within one build:
+it assumes `std::hypot` returns the same value when the file is read as it did
+when it was written.
+
+## Benchmark methodology
+
+`benchmark` compares Dijkstra, zero-heuristic A\* and Euclidean A\* on one graph
+and one query set. The fairness rules are enforced by the harness, not left to
+the person running it:
+
+* The graph must satisfy the metric contract, or the run is refused with exit
+  code 4 — a comparison that excluded Euclidean A\* would not be the comparison
+  being claimed.
+* One deterministic query set is built from `--seed` and **every algorithm and
+  every repetition sees exactly that set, in that order**. Each query draws a
+  source and then a non-zero offset, so source and target are always distinct.
+* Every algorithm gets one warm-up pass, excluded from every reported figure.
+* The warm-up doubles as the agreement pass, so the cross-checking work is
+  never inside a timed region.
+* Every query is checked: all three algorithms must agree on whether a route
+  exists and, when it does, on its cost. Disagreement aborts with exit code 5
+  and **no report is printed** — a comparison that might be wrong is worse than
+  no comparison.
+* The execution order rotates by one algorithm on each repetition, so none of
+  them always runs first and always pays the cold-cache cost.
+* Counters must be identical in every repetition; a difference means the search
+  is not deterministic and also aborts with exit code 5.
+
+### What is measured
+
+**Node expansions are the primary comparison.** They are exact, reproducible
+for a given graph and query set, and independent of the machine, the compiler
+and the build type. Arcs examined, queue pushes and pops, stale pops and the
+maximum queue size are reported alongside them, all exact for the same reason.
+The maximum queue size counts queue *entries*, including superseded ones; it is
+not a memory measurement and no memory measurement is made.
+
+**Elapsed time is a secondary observation.** The median across repetitions is
+reported for each algorithm, and that is all it is: a description of one build
+on one machine at one moment. It is not comparable with any other machine,
+compiler, build type or run, and **no test asserts anything about timing**.
+
+Nothing here claims that A\* always expands fewer nodes than Dijkstra. Whether
+it does, and by how much, depends on the graph and on the query; the numbers
+above describe one lattice and one query set.
+
 ## Verification
 
 The test suite covers the graph core, the metric contract, every documented
@@ -233,3 +373,12 @@ deliberately naive Bellman–Ford reference in `tests/support/`, which shares no
 code with the search core, on every source/target pair of several fixed small
 graphs; every returned path is re-walked against the arc array and its cost
 re-summed independently of the search that produced it.
+
+Generator and benchmark coverage adds: the SplitMix64 stream checked against
+reference values from an independent implementation; repeatability of both the
+graph and the CSV bytes; lattice node and arc counts against the geometry;
+strong connectivity through the backbone alone; every weight equal to the
+Euclidean distance exactly; the metric contract across several shapes and
+seeds; a full CSV round trip compared bit for bit; parameter rejection; and
+deterministic, in-range, non-degenerate query generation. No test asserts a
+timing result.

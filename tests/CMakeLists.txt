@@ -18,7 +18,9 @@ set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 add_executable(route_tests
+  test_benchmark.cpp
   test_csv.cpp
+  test_generator.cpp
   test_graph.cpp
   test_metric.cpp
   test_search.cpp)

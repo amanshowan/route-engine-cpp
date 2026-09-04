@@ -60,4 +60,15 @@ class HeuristicContractError : public std::runtime_error {
   explicit HeuristicContractError(const std::string& message) : std::runtime_error(message) {}
 };
 
+/// Raised when a benchmark's own consistency checks fail.
+///
+/// Two algorithms disagreed about whether a route exists or about its cost, or
+/// a repetition produced different counters from the first one. Either means
+/// the numbers cannot be trusted, so the benchmark reports the failure instead
+/// of publishing a comparison that might be wrong.
+class BenchmarkAgreementError : public std::runtime_error {
+ public:
+  explicit BenchmarkAgreementError(const std::string& message) : std::runtime_error(message) {}
+};
+
 }  // namespace route

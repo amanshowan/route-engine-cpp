@@ -42,8 +42,10 @@ endif()
 # Core library
 # ---------------------------------------------------------------------------
 add_library(route_core
+  src/benchmark.cpp
   src/builder.cpp
   src/csv.cpp
+  src/generator.cpp
   src/graph.cpp
   src/metric.cpp
   src/search.cpp)
