@@ -18,8 +18,12 @@ set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 add_executable(route_tests
+  test_csv.cpp
   test_graph.cpp
-  test_metric.cpp)
+  test_metric.cpp
+  test_search.cpp)
+
+target_include_directories(route_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(route_tests PRIVATE route_core route_warnings GTest::gtest_main)
 

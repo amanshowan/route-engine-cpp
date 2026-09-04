@@ -1,0 +1,8 @@
+# A six-node example network. Coordinates are projected planar metres.
+id,x,y
+1,0,0
+2,300,0
+3,300,400
+4,0,400
+5,700,400
+6,700,0

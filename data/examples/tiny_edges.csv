@@ -1,0 +1,18 @@
+# Each row is one directed arc; a two-way street is two rows.
+# Every weight is at least the straight-line distance between its endpoints,
+# so this graph satisfies the metric contract and Euclidean A* is allowed.
+source,target,weight
+1,2,300
+2,1,300
+2,3,400
+3,2,400
+1,4,400
+4,1,400
+4,3,320
+3,4,320
+3,5,400
+5,3,400
+5,6,400
+6,5,400
+2,6,450
+6,2,450

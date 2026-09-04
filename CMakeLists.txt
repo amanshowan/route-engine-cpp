@@ -43,8 +43,10 @@ endif()
 # ---------------------------------------------------------------------------
 add_library(route_core
   src/builder.cpp
+  src/csv.cpp
   src/graph.cpp
-  src/metric.cpp)
+  src/metric.cpp
+  src/search.cpp)
 
 target_include_directories(route_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(route_core PUBLIC cxx_std_20)
