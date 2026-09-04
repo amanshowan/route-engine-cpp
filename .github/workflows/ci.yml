@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Correctness on Ubuntu with both mainstream compilers, warnings as errors.
+  build-and-test:
+    name: ${{ matrix.compiler }} / debug
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Report toolchain
+        run: |
+          cmake --version
+          $CXX --version
+
+      - name: Configure
+        run: cmake --preset debug -DROUTE_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build --preset debug
+
+      - name: Test
+        run: ctest --preset debug --output-on-failure
+
+  # AddressSanitizer and UndefinedBehaviorSanitizer over the whole test suite.
+  sanitizers:
+    name: clang / asan+ubsan
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake --preset asan-ubsan -DROUTE_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build --preset asan-ubsan
+
+      - name: Test
+        run: ctest --preset asan-ubsan --output-on-failure
+
+  # The release build plus an end-to-end exercise of all four subcommands.
+  # This job proves the commands run and agree with each other. It is not a
+  # performance measurement: shared CI runners are far too noisy for that, and
+  # no timing from here is ever published.
+  release-smoke:
+    name: gcc / release smoke
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc
+      CXX: g++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake --preset release -DROUTE_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build --preset release
+
+      - name: Test
+        run: ctest --preset release --output-on-failure
+
+      - name: Generate a 20x20 network
+        run: |
+          ./build/release/route-engine generate \
+            --width 20 --height 20 --seed 20250904 \
+            --nodes "${RUNNER_TEMP}/nodes.csv" --edges "${RUNNER_TEMP}/edges.csv"
+
+      - name: Validate the generated network
+        run: |
+          ./build/release/route-engine validate \
+            --nodes "${RUNNER_TEMP}/nodes.csv" --edges "${RUNNER_TEMP}/edges.csv"
+
+      - name: Route across it
+        run: |
+          ./build/release/route-engine route \
+            --nodes "${RUNNER_TEMP}/nodes.csv" --edges "${RUNNER_TEMP}/edges.csv" \
+            --from 1 --to 400 --algorithm astar-euclidean
+
+      - name: Benchmark it
+        run: |
+          ./build/release/route-engine benchmark \
+            --nodes "${RUNNER_TEMP}/nodes.csv" --edges "${RUNNER_TEMP}/edges.csv" \
+            --queries 25 --seed 7 --repetitions 2

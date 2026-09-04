@@ -471,8 +471,9 @@ void print_benchmark(std::ostream& out, const route::Graph& graph,
         << std::right << std::fixed << std::setprecision(3) << ratio << std::defaultfloat << "\n";
   }
 
-  out << "\nNode expansions are the primary comparison. They are exact, reproducible for a\n"
-      << "given graph and query set, and independent of this machine.\n"
+  out << "\nNode expansions are the primary comparison. They are an exact count rather\n"
+      << "than a sampled measurement, and are deterministic for this build and this exact\n"
+      << "input: the same binary, graph and query set reproduce them precisely.\n"
       << "\n"
       << "Elapsed time is a secondary observation only. It describes this build on this\n"
       << "machine at this moment and is not comparable with any other machine, compiler,\n"
