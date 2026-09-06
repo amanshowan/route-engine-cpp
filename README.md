@@ -12,11 +12,11 @@ cannot verify**.
 > **Status: v1.0 complete.** All four milestones are implemented, and the full
 > suite passes locally in debug, release and sanitizer builds.
 >
-> GitHub Actions passed on release-candidate commit `324e50e`: GCC and Clang
-> debug builds with warnings as errors, the Clang AddressSanitizer +
+> GitHub Actions passed on release commit `0dc8f65`: GCC and Clang debug builds
+> with warnings as errors, the Clang AddressSanitizer +
 > UndefinedBehaviorSanitizer job, and the release smoke job that exercises
-> `generate`, `validate`, `route` and `benchmark` end to end. The `v1.0.0` tag
-> has not been created yet.
+> `generate`, `validate`, `route` and `benchmark` end to end. The project is
+> tagged and published as `v1.0.0`.
 
 ## What is worth looking at
 
@@ -119,7 +119,7 @@ unless `--force` is given.
 
 On the 40×40 network above, over 200 queries: Dijkstra and zero-heuristic A\*
 each expanded **154,733** nodes, Euclidean A\* expanded **25,715** — about one
-sixth — for identical routes and identical costs.
+sixth — with all three algorithms agreeing on route existence and cost.
 
 The full record, with environment, exact commands and complete raw output, is
 committed at
@@ -268,9 +268,10 @@ assuming its own contract.
 The pseudo-random stream is **SplitMix64**, written out in full in
 `include/route/random.hpp`. Neither `std::rand` nor the
 `std::uniform_*_distribution` templates are used: the standard fixes the engines
-but not the distributions, so their output legitimately differs between standard
-libraries, and a "deterministic" generator built on them would be deterministic
-on exactly one machine.
+but not the distribution algorithms, so the same engine and the same seed can
+legitimately produce different values under different standard-library
+implementations. A generator built on them would therefore not give portable
+deterministic output.
 
 The draw order is fixed and documented: all coordinates first, row-major, x
 before y; then two draws per cell for the diagonals. The diagonal draws happen
